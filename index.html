@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aura AI-Assistant</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            /* FIX: Replaced placeholder with a working, high-quality public image 
+              similar to your first uploaded image.
+            */
+            /* UPDATED: New URL that better matches the user's uploaded AI chip image */
+            background-image: url('https://images.unsplash.com/photo-1620712943543-aebc692385C5?auto=format&fit=crop&w=1740&q=80');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed; /* Keeps background fixed on scroll */
+            color: white;
+            position: relative;
+        }
+
+        /* Dark overlay for better readability */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.85); /* Darker 85% overlay */
+            z-index: -1;
+        }
+
+        /* AI message content styling */
+        .ai-message-content {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        /* Message fade-in animation */
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .message-fade-in {
+          animation: fadeIn 0.3s ease-out;
+        }
+
+        /* Typing indicator animation */
+        @keyframes bounce {
+          0%, 80%, 100% { transform: scale(0); }
+          40% { transform: scale(1.0); }
+        }
+        .typing-dot {
+          width: 8px;
+          height: 8px;
+          background-color: #9ca3af; /* gray-400 */
+          border-radius: 50%;
+          display: inline-block;
+          animation: bounce 1.4s infinite ease-in-out both;
+        }
+
+        /* Speech recognition active indicator styling
+          FIX: Replaced placeholder with a working GIF similar to your second image.
+          This will be much more dynamic and responsive.
+        */
+        #voiceCommandIndicator {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px; /* Increased size for better effect */
+            height: 200px;
+            /* Using a high-quality GIF of a glowing orb */
+            background-image: url('https://i.gifer.com/ZNeT.gif');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            display: none; /* Hidden by default */
+            z-index: 1000;
+            /* Removed the simple pulse animation, as the GIF is already animated */
+        }
+
+        /* Toggle Switch Styles */
+        .toggle-label {
+            position: relative;
+            display: inline-block;
+            width: 50px; /* smaller width */
+            height: 26px; /* smaller height */
+        }
+        .toggle-label input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #4b5563; /* gray-600 */
+            transition: .4s;
+            border-radius: 26px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 20px; /* smaller circle */
+            width: 20px; /* smaller circle */
+            left: 3px; /* adjusted position */
+            bottom: 3px; /* adjusted position */
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #3b82f6; /* blue-500 */
+        }
+        input:checked + .slider:before {
+            transform: translateX(24px); /* adjusted slide distance */
+        }
+        
+        /* Suggested Questions Styles */
+        #suggestedQuestionsContainer {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 8px;
+            justify-content: center;
+        }
+        .suggested-question {
+            background-color: rgba(75, 85, 99, 0.7); /* gray-600 with 70% opacity */
+            color: #d1d5db; /* gray-300 */
+            border: 1px solid #6b7280; /* gray-500 */
+            padding: 8px 12px;
+            border-radius: 16px;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            animation: fadeIn 0.3s ease-out;
+            backdrop-filter: blur(2px); /* Frosted glass effect */
+        }
+        .suggested-question:hover {
+            background-color: rgba(107, 114, 128, 0.8); /* gray-500 with 80% opacity */
+            color: white;
+        }
+
+    </style>
+</head>
+<body class="antialiased">
+
+    <div class="flex flex-col h-screen max-w-3xl mx-auto p-4 relative z-0">
+        
+        <!-- Header -->
+        <header class="py-4 text-center space-y-2">
+            <h1 class="text-3xl font-bold text-blue-400" style="text-shadow: 0 0 8px rgba(59, 130, 246, 0.5);">Aura AI-Assistant</h1>
+            <p class="text-gray-300">Aura AI-Assistant with Google Search for authentic answers</p>
+            <!-- Creative Mode Toggle -->
+            <div class="flex items-center justify-center space-x-2 pt-2">
+                <span id="creativeModeLabel" class="text-gray-400 font-medium transition-colors duration-300">Aura Mode</span>
+                <label class="toggle-label">
+                    <input type="checkbox" id="creativeModeToggle">
+                    <span class="slider"></span>
+                </label>
+                <span class="text-blue-400 font-medium transition-colors duration-300">✨ Creative</span>
+            </div>
+        </header>
+
+        <!-- Chat Window -->
+        <div id="chatbox" class="flex-1 bg-gray-800 bg-opacity-70 backdrop-filter backdrop-blur-sm rounded-lg shadow-inner p-4 overflow-y-auto space-y-4 mb-4 border border-gray-700">
+            <!-- Initial Message -->
+            <div class="flex flex-col message-fade-in">
+                <div class="p-3 rounded-lg bg-gray-700 bg-opacity-90 max-w-lg self-start mr-auto">
+                    <p class="ai-message-content">Hello Aura AI-Assistant! How Can I  Help you</p>
+                </div>
+            </div>
+            <!-- Other messages will be added here -->
+        </div>
+        
+        <!-- Typing Indicator -->
+        <div id="typingIndicator" class="hidden items-center space-x-2 p-3 rounded-lg bg-gray-700 bg-opacity-90 max-w-lg self-start mr-auto mb-4">
+            <div class="typing-dot"></div>
+            <div class="typing-dot" style="animation-delay: 0.2s;"></div>
+            <div class="typing-dot" style="animation-delay: 0.4s;"></div>
+        </div>
+
+        <!-- Suggested Questions Container -->
+        <div id="suggestedQuestionsContainer">
+            <!-- Suggested questions will be injected here -->
+        </div>
+
+        <!-- Input Area -->
+        <footer class="flex items-center space-x-2 relative z-10">
+            <input 
+                type="text" 
+                id="userInput" 
+                placeholder="Type your message or click the mic..." 
+                class="flex-1 p-3 bg-gray-700 bg-opacity-80 backdrop-filter backdrop-blur-sm border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+            <button
+                id="suggestButton"
+                class="bg-yellow-500 text-white p-3 rounded-lg hover:bg-yellow-600 transition-colors duration-200 disabled:bg-gray-500 disabled:cursor-not-allowed flex-shrink-0"
+                title="✨ Suggest Follow-ups"
+            >
+                <!-- Sparkle Icon SVG -->
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-6 h-6">
+                  <path fill-rule="evenodd" d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.39-3.47 3.38.94 4.867 4.223-2.338 4.142 2.662 1.05-4.79 3.493-3.41-4.83-.34-1.832-4.4zM10 12.433l-2.49 1.577.472-2.8-2.074-2.02.29-.02 2.793-.23.9-2.71.9 2.71 2.793.23.29.02-2.073 2.02.472 2.8L10 12.433z" clip-rule="evenodd" />
+                </svg>
+            </button>
+            <button 
+                id="micButton" 
+                class="bg-purple-600 text-white p-3 rounded-lg hover:bg-purple-700 transition-colors duration-200 disabled:bg-gray-500 disabled:cursor-not-allowed flex-shrink-0"
+                title="Start Voice Command"
+            >
+                <!-- Microphone Icon SVG -->
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-6 h-6">
+                    <path d="M7 4a3 3 0 016 0v6a3 3 0 11-6 0V4z" />
+                    <path fill-rule="evenodd" d="M11.5 14.615A5.002 5.002 0 0110 16a5.002 5.002 0 01-1.5-.385v1.892a.75.75 0 01-1.5 0v-1.892A6.501 6.501 0 003.5 11V8a.75.75 0 011.5 0v3A5 5 0 0110 6a5 5 0 015 5v3a.75.75 0 01-1.5 0V11a6.501 6.501 0 00-5-6.385z" clip-rule="evenodd" />
+                </svg>
+            </button>
+            <button 
+                id="sendButton" 
+                class="bg-blue-600 text-white font-semibold p-3 rounded-lg hover:bg-blue-700 transition-colors duration-200 disabled:bg-gray-500 disabled:cursor-not-allowed flex-shrink-0"
+                title="Send Message"
+            >
+                <!-- Send Icon SVG -->
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-6 h-6">
+                    <path d="M3.105 3.105a.75.75 0 01.884-.03l14 7a.75.75 0 010 1.348l-14 7a.75.75 0 01-1.072-.994l2.093-6.539a.75.75 0 000-.238L2.01 4.13a.75.75 0 01.094-1.025z" />
+                </svg>
+            </button>
+        </footer>
+
+    </div>
+
+    <!-- Voice Command Active Indicator (Orb) -->
+    <div id="voiceCommandIndicator" class="hidden"></div>
+
+    <script type="module">
+        // --- DOM Elements ---
+        const chatbox = document.getElementById('chatbox');
+        const userInput = document.getElementById('userInput');
+        const sendButton = document.getElementById('sendButton');
+        const micButton = document.getElementById('micButton');
+        const suggestButton = document.getElementById('suggestButton');
+        const suggestedQuestionsContainer = document.getElementById('suggestedQuestionsContainer');
+        const typingIndicator = document.getElementById('typingIndicator');
+        const voiceCommandIndicator = document.getElementById('voiceCommandIndicator');
+        const creativeModeToggle = document.getElementById('creativeModeToggle');
+        const creativeModeLabel = document.getElementById('creativeModeLabel');
+
+        // --- API Configuration ---
+        // IMPORTANT: Per instructions, apiKey is an empty string.
+        const apiKey = "AIzaSyDMJ7gJ_fT5sZ79_kX6vKpcK7nmOwFVkTU"; 
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+        // --- State ---
+        let isCreativeMode = false;
+        let chatHistory = [
+            { 
+                role: "model", 
+                parts: [{ text: "Hello! Ask me anything. You can type or use the voice command." }] 
+            }
+        ];
+
+        // --- System Prompt ---
+        const systemPrompt = `
+You are a helpful and knowledgeable AI assistant. Your primary goal is to provide accurate, relevant, and concise answers to user queries.
+- You MUST use the provided Google Search tool results to find the most up-to-date and factual information.
+- Base your answers *directly* on the information from the search results.
+- If the search results provide sources, you MUST cite them.
+- If the search results do not contain a clear answer, state that you couldn't find the information.
+- Do not speculate or provide information that is not supported by the search results.
+- Keep your answers clear and easy to understand.
+        `;
+
+        // --- Speech Recognition setup ---
+        let recognition;
+        let isListening = false;
+        let speechRequestSent = false; // Flag to prevent UI race condition
+
+        if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.continuous = false; // Stop after first utterance
+            recognition.lang = 'en-US'; // Set default language
+            recognition.interimResults = false; // Only get final results
+            recognition.maxAlternatives = 1; // Only get the best result
+
+            recognition.onstart = () => {
+                speechRequestSent = false; // Reset flag on start
+                isListening = true;
+                micButton.classList.add('bg-red-500', 'animate-pulse'); // Indicate active listening
+                micButton.classList.remove('bg-purple-600', 'hover:bg-purple-700');
+                voiceCommandIndicator.classList.remove('hidden');
+                voiceCommandIndicator.classList.add('flex'); // Show the glowing orb
+                userInput.placeholder = "Listening...";
+                userInput.disabled = true;
+                sendButton.disabled = true;
+                suggestButton.disabled = true; // Disable suggest while listening
+                console.log("Speech recognition started.");
+            };
+
+            recognition.onresult = (event) => {
+                speechRequestSent = true; // Set flag: a request will be sent
+                const transcript = event.results[0][0].transcript;
+                userInput.value = transcript;
+                console.log("Speech recognized:", transcript);
+                // Automatically send the message after recognition
+                handleUserRequest(); 
+            };
+
+            recognition.onend = () => {
+                isListening = false;
+                micButton.classList.remove('bg-red-500', 'animate-pulse');
+                micButton.classList.add('bg-purple-600', 'hover:bg-purple-700');
+                voiceCommandIndicator.classList.add('hidden');
+                voiceCommandIndicator.classList.remove('flex'); // Hide the glowing orb
+
+                // If speechRequestSent is true, handleUserRequest is running
+                // and will manage the UI state.
+                // If false, it means recognition ended without a result (e.g., 'no-speech' or user clicked stop)
+                // so we MUST reset the UI here.
+                if (!speechRequestSent) {
+                    userInput.placeholder = "Type your message or click the mic...";
+                    userInput.disabled = false;
+                    sendButton.disabled = false;
+                    suggestButton.disabled = false; // Re-enable suggest
+                }
+                
+                console.log("Speech recognition ended.");
+            };
+
+            recognition.onerror = (event) => {
+                if (event.error === 'no-speech') {
+                    // This is not a critical error.
+                    // Just log it to the console. The 'onend' event will handle UI reset.
+                    console.warn("Speech recognition: No speech detected.");
+                } else if (event.error === 'not-allowed') {
+                    // This is a critical error - user denied microphone permission.
+                    console.error("Speech recognition error: Microphone access denied.");
+                    displayMessage("Voice command error: Microphone access was denied. Please allow microphone access in your browser settings.", 'ai-error');
+                } else {
+                    // Handle other errors
+                    console.error("Speech recognition error:", event.error);
+                    displayMessage(`Voice command error: ${event.error}`, 'ai-error');
+                }
+                
+                // 'onend' will fire after this, resetting the UI, so no need to call it manually
+                // or reset 'isListening' here.
+            };
+
+            micButton.addEventListener('click', () => {
+                if (isListening) {
+                    recognition.stop(); // Stop if already listening
+                } else {
+                    try {
+                        recognition.start(); // Start listening
+                    } catch (e) {
+                        console.error("Error starting speech recognition:", e);
+                        displayMessage("Could not start voice command. Please ensure microphone access is granted.", 'ai-error');
+                        // Manually trigger end to reset UI if start fails
+                        if (recognition) {
+                            recognition.abort();
+                        }
+                        // Manually reset UI just in case 'onend' doesn't fire
+                        isListening = false;
+                        micButton.classList.remove('bg-red-500', 'animate-pulse');
+                        micButton.classList.add('bg-purple-600', 'hover:bg-purple-700');
+                        voiceCommandIndicator.classList.add('hidden');
+                        voiceCommandIndicator.classList.remove('flex');
+                        userInput.placeholder = "Type your message or click the mic...";
+                        userInput.disabled = false;
+                        sendButton.disabled = false;
+                        suggestButton.disabled = false;
+                    }
+                }
+            });
+
+        } else {
+            micButton.disabled = true;
+            micButton.title = "Voice command not supported by your browser";
+            console.warn("Speech Recognition API not supported in this browser.");
+        }
+
+
+        // --- Event Listeners ---
+        sendButton.addEventListener('click', handleUserRequest);
+        userInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault(); // Prevent newline on Enter
+                handleUserRequest();
+            }
+        });
+
+        creativeModeToggle.addEventListener('change', () => {
+            isCreativeMode = creativeModeToggle.checked;
+            if (isCreativeMode) {
+                creativeModeLabel.textContent = "Grounded Mode";
+                creativeModeLabel.classList.remove('text-gray-400');
+                creativeModeLabel.classList.add('text-gray-600'); // Dim the "Grounded" label
+            } else {
+                creativeModeLabel.textContent = "Grounded Mode";
+                creativeModeLabel.classList.add('text-gray-400');
+                creativeModeLabel.classList.remove('text-gray-600');
+            }
+            console.log("Creative Mode:", isCreativeMode);
+        });
+
+        suggestButton.addEventListener('click', generateFollowUps);
+
+        suggestedQuestionsContainer.addEventListener('click', (event) => {
+            if (event.target && event.target.classList.contains('suggested-question')) {
+                const question = event.target.textContent;
+                userInput.value = question;
+                handleUserRequest(); // Automatically send the clicked question
+            }
+        });
+
+        /**
+         * Main function to handle user's request
+         */
+        async function handleUserRequest() {
+            const prompt = userInput.value.trim();
+            if (!prompt) return;
+
+            // Display user message
+            displayMessage(prompt, 'user');
+            // Add user message to chat history
+            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+            
+            // Clear input and disable UI
+            userInput.value = '';
+            userInput.disabled = true;
+            sendButton.disabled = true;
+            micButton.disabled = true; // Disable mic during AI processing
+            suggestButton.disabled = true; // Disable suggest during AI processing
+            
+            // Clear previous suggestions
+            clearSuggestedQuestions();
+            
+            typingIndicator.classList.remove('hidden');
+            typingIndicator.classList.add('flex');
+            chatbox.scrollTop = chatbox.scrollHeight; // Scroll down to show indicator
+
+            try {
+                // Call the Gemini API 
+                const { text, sources } = await callGeminiApi();
+                
+                // Add AI response to chat history
+                chatHistory.push({ role: "model", parts: [{ text: text }] });
+
+                // Display AI response
+                displayMessage(text, 'ai');
+
+                // Display sources if they exist (only in Grounded Mode)
+                if (sources && sources.length > 0) {
+                    displaySources(sources);
+                }
+
+            } catch (error) {
+                console.error('Error calling Gemini API:', error);
+                displayMessage(`Sorry, I ran into an error: ${error.message}`, 'ai-error');
+                // Remove the last failed user message from history so they can retry
+                chatHistory.pop();
+            } finally {
+                // Re-enable UI
+                userInput.disabled = false;
+                sendButton.disabled = false;
+                micButton.disabled = false; // Re-enable mic
+                suggestButton.disabled = false; // Re-enable suggest
+                typingIndicator.classList.add('hidden');
+                typingIndicator.classList.remove('flex');
+                userInput.focus();
+            }
+        }
+
+        /**
+         * Calls the Gemini API with exponential backoff
+         * Uses the global chatHistory and isCreativeMode state
+         * @returns {Promise<{text: string, sources: Array<{uri: string, title: string}>}>}
+         */
+        async function callGeminiApi() {
+            
+            const payload = { contents: chatHistory };
+
+            if (isCreativeMode) {
+                // Creative mode: No tools, no system prompt
+                // We use a simpler, more creative system prompt
+                payload.systemInstruction = {
+                    parts: [{ text: "You are a creative and helpful AI assistant. Respond to the user's prompt in an engaging and imaginative way." }]
+                };
+            } else {
+                // Grounded mode: Add search tools and system prompt
+                payload.tools = [{ "google_search": {} }];
+                payload.systemInstruction = {
+                    parts: [{ "text": systemPrompt }]
+                };
+            }
+
+            const options = {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            };
+            
+            // Use fetch with exponential backoff
+            const response = await fetchWithBackoff(apiUrl, options);
+            
+            if (!response.ok) {
+                const errorBody = await response.text();
+                throw new Error(`API request failed with status ${response.status}: ${errorBody}`);
+            }
+
+            const result = await response.json();
+            const candidate = result.candidates?.[0];
+
+            if (!candidate) {
+                // Handle cases where content might be blocked
+                if (result.promptFeedback?.blockReason) {
+                    throw new Error(`Request was blocked: ${result.promptFeedback.blockReason}`);
+                }
+                throw new Error('Invalid API response: No candidate returned.');
+            }
+            
+            if (!candidate.content?.parts?.[0]?.text) {
+                 // Check for finishReason
+                if (candidate.finishReason && candidate.finishReason !== "STOP") {
+                     throw new Error(`Generation stopped: ${candidate.finishReason}`);
+                }
+                throw new Error('Invalid API response structure: No text part found.');
+            }
+
+            // 1. Extract the generated text
+            const text = candidate.content.parts[0].text;
+
+            // 2. Extract grounding sources
+            let sources = [];
+            // Only check for sources if not in creative mode
+            if (!isCreativeMode) {
+                const groundingMetadata = candidate.groundingMetadata;
+                if (groundingMetadata && groundingMetadata.groundingAttributions) {
+                    sources = groundingMetadata.groundingAttributions
+                        .map(attribution => ({
+                            uri: attribution.web?.uri,
+                            title: attribution.web?.title,
+                        }))
+                        .filter(source => source.uri && source.title); // Ensure sources are valid
+                }
+            }
+
+            return { text, sources };
+        }
+
+        /**
+         * A simple fetch wrapper with exponential backoff for retries.
+         * @param {string} url - The URL to fetch.
+         * @param {object} options - The fetch options.
+         * @param {number} retries - Number of retries left.
+         * @param {number} delay - Current delay in ms.
+         * @returns {Promise<Response>}
+         */
+        async function fetchWithBackoff(url, options, retries = 5, delay = 1000) {
+            try {
+                const response = await fetch(url, options);
+
+                // Retry on 429 (Too Many Requests) or 5xx server errors
+                if (!response.ok && (response.status === 429 || response.status >= 500)) {
+                    // This is a retryable error
+                    throw new Error(`Retryable error: ${response.status}`);
+                }
+                
+                return response; // Success
+
+            } catch (error) {
+                if (retries > 0) {
+                    // Don't log retry attempts as errors in the console
+                    // Wait for the delay
+                    await new Promise(res => setTimeout(res, delay));
+                    // Recurse with one less retry and doubled delay
+                    return fetchWithBackoff(url, options, retries - 1, delay * 2);
+                } else {
+                    // No retries left, throw the final error
+                    throw error;
+                }
+            }
+        }
+
+        /**
+         * Displays a message in the chatbox
+         * @param {string} message - The message content
+         * @param {'user' | 'ai' | 'ai-error'} sender - The sender type
+         */
+        function displayMessage(message, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('p-3', 'rounded-lg', 'max-w-lg', 'break-words', 'shadow-md');
+
+            if (sender === 'user') {
+                messageDiv.classList.add('bg-blue-600', 'text-white', 'self-end', 'ml-auto');
+                messageDiv.textContent = message; // Use textContent for user messages
+            } else {
+                messageDiv.classList.add('self-start', 'mr-auto');
+                
+                if (sender === 'ai-error') {
+                    messageDiv.classList.add('bg-red-700', 'text-white');
+                } else {
+                    messageDiv.classList.add('bg-gray-700', 'text-white', 'bg-opacity-90');
+                }
+                
+                // Use a nested p tag with 'pre-wrap' to render newlines
+                const contentP = document.createElement('p');
+                contentP.classList.add('ai-message-content');
+                contentP.textContent = message; // Safely set text content
+                messageDiv.appendChild(contentP);
+            }
+            
+            // Need to wrap in a flex container to use self-end/self-start
+            const messageWrapper = document.createElement('div');
+            messageWrapper.classList.add('flex', 'flex-col', 'message-fade-in');
+            messageWrapper.appendChild(messageDiv);
+            
+            chatbox.appendChild(messageWrapper);
+            
+            // Scroll to bottom
+            chatbox.scrollTop = chatbox.scrollHeight;
+        }
+
+        /**
+         * Displays a list of sources
+         * @param {Array<{uri: string, title: string}>} sources - The list of sources
+         */
+        function displaySources(sources) {
+            const sourcesContainer = document.createElement('div');
+            sourcesContainer.classList.add('p-3', 'rounded-lg', 'bg-gray-700', 'bg-opacity-90', 'max-w-lg', 'text-sm', 'self-start', 'mr-auto', 'border', 'border-gray-600');
+
+            const title = document.createElement('h4');
+            title.textContent = 'Sources:';
+            title.classList.add('font-semibold', 'mb-2', 'text-gray-300');
+            sourcesContainer.appendChild(title);
+
+            const list = document.createElement('ul');
+            list.classList.add('list-disc', 'list-inside', 'space-y-1');
+
+            sources.forEach(source => {
+                const listItem = document.createElement('li');
+                const link = document.createElement('a');
+                link.href = source.uri;
+                link.textContent = source.title;
+                link.target = '_blank'; // Open in new tab
+                link.rel = 'noopener noreferrer';
+                link.classList.add('text-blue-400', 'hover:underline');
+                listItem.appendChild(link);
+                list.appendChild(listItem);
+            });
+
+            sourcesContainer.appendChild(list);
+
+            const messageWrapper = document.createElement('div');
+            messageWrapper.classList.add('flex', 'flex-col', 'message-fade-in');
+            messageWrapper.appendChild(sourcesContainer);
+            
+            chatbox.appendChild(messageWrapper);
+            chatbox.scrollTop = chatbox.scrollHeight;
+        }
+
+        /**
+         * --- NEW: Gemini API for Suggestions ---
+         */
+
+        /**
+         * Generates and displays follow-up questions.
+         */
+        async function generateFollowUps() {
+            if (chatHistory.length < 2) return; // Need at least one user/model exchange
+
+            suggestButton.disabled = true;
+            suggestButton.classList.add('animate-pulse');
+            clearSuggestedQuestions();
+
+            // Create a prompt for the suggestion model
+            const suggestionPrompt = `
+Based on the last user message and AI response, suggest three concise and relevant follow-up questions the user might want to ask next.
+Respond ONLY with a valid JSON array of strings.
+Example: ["What's the weather like?", "Tell me more about that.", "How does that work?"]
+            `;
+
+            // We only need the last 2 items for context, plus the new prompt
+            const suggestionContext = [
+                ...chatHistory.slice(-2), // Get last user/model exchange
+                { role: "user", parts: [{ text: suggestionPrompt }] }
+            ];
+
+            try {
+                const questions = await callGeminiForSuggestions(suggestionContext);
+                if (questions && questions.length > 0) {
+                    displaySuggestedQuestions(questions);
+                }
+            } catch (error) {
+                console.error("Error generating suggestions:", error);
+                // Don't show an error in the main chat, just log it.
+            } finally {
+                suggestButton.disabled = false;
+                suggestButton.classList.remove('animate-pulse');
+            }
+        }
+
+        /**
+         * Calls Gemini API specifically for JSON-formatted suggestions.
+         * @param {Array<object>} historyForSuggestion - The conversation context.
+         * @returns {Promise<Array<string>>} - An array of question strings.
+         */
+        async function callGeminiForSuggestions(historyForSuggestion) {
+            const payload = {
+                contents: historyForSuggestion,
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "ARRAY",
+                        items: { type: "STRING" }
+                    }
+                }
+            };
+
+            const options = {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            };
+
+            const response = await fetchWithBackoff(apiUrl, options);
+
+            if (!response.ok) {
+                const errorBody = await response.text();
+                throw new Error(`API request failed with status ${response.status}: ${errorBody}`);
+            }
+
+            const result = await response.json();
+            const candidate = result.candidates?.[0];
+
+            if (!candidate?.content?.parts?.[0]?.text) {
+                throw new Error('Invalid suggestions response structure.');
+            }
+
+            // The model is forced to output JSON, so we can parse it.
+            return JSON.parse(candidate.content.parts[0].text);
+        }
+
+        /**
+         * Displays the suggested questions as buttons.
+         * @param {Array<string>} questions - An array of question strings.
+         */
+        function displaySuggestedQuestions(questions) {
+            clearSuggestedQuestions();
+            questions.slice(0, 3).forEach(question => { // Only show max 3
+                const button = document.createElement('button');
+                button.textContent = question;
+                button.classList.add('suggested-question');
+                suggestedQuestionsContainer.appendChild(button);
+            });
+        }
+
+        /**
+         * Clears all suggested question buttons.
+         */
+        function clearSuggestedQuestions() {
+            suggestedQuestionsContainer.innerHTML = '';
+        }
+
+    </script>
+</body>
+</html>
+
+
